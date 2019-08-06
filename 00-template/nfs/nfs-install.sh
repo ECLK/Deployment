@@ -35,7 +35,7 @@ Description=Node Exporter
 [Service]
 User=node_exporter
 EnvironmentFile=/etc/sysconfig/node_exporter
-ExecStart=/usr/sbin/node_exporter $OPTIONS
+ExecStart=/usr/bin/node_exporter $OPTIONS
 
 [Install]
 WantedBy=multi-user.target
@@ -43,6 +43,9 @@ EOF
 
 sudo ufw allow 9100
 
+sudo useradd -rs /bin/false node_exporter
+sudo mkdir /etc/sysconfig
+sudo touch node_exporter
 sudo systemctl daemon-reload
 sudo systemctl enable node_exporter
 sudo systemctl start node_exporter
