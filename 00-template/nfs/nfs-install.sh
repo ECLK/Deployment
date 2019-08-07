@@ -45,7 +45,7 @@ sudo ufw allow 9100
 
 sudo useradd -rs /bin/false node_exporter
 sudo mkdir /etc/sysconfig
-sudo touch node_exporter
+sudo touch /etc/sysconfig/node_exporter
 sudo systemctl daemon-reload
 sudo systemctl enable node_exporter
 sudo systemctl start node_exporter
