@@ -8,7 +8,7 @@ sudo sysctl -p /etc/sysctl.conf
 
 ## Disable Swap
 swapoff -a
-sed -i '2s/^/#/' /etc/fstab 
+sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
 
 ## Setup Docker
 apt-get update
@@ -49,7 +49,7 @@ EOF
 
 apt-get update
 apt install kubernetes-cni -y # not in documentation needed for updates
-apt-get install kubelet=1.14.2-00 kubeadm=1.14.2-00 kubectl=1.14.2-00 -y 
+apt-get install kubelet=$K8S_VERSION kubeadm=$K8S_VERSION kubectl=$K8S_VERSION -y 
 apt-mark hold kubelet kubeadm kubectl
 systemctl daemon-reload
 systemctl restart kubelet
