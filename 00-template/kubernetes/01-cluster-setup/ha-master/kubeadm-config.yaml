@@ -27,7 +27,7 @@ apiServer:
   timeoutForControlPlane: 4m0s
 certificatesDir: /etc/kubernetes/pki
 clusterName: kubernetes
-controlPlaneEndpoint: ""
+controlPlaneEndpoint: <loadbalancer_internal_ip>
 controllerManager: 
   extraArgs:
     feature-gates: "TTLAfterFinished=true"
