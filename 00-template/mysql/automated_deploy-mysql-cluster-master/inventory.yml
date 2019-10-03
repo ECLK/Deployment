@@ -1,0 +1,17 @@
+[mysql_cluster]
+mysql1 ansible_host=172.17.0.214 ansible_port=22
+mysql2 ansible_host=172.17.0.215 ansible_port=22
+mysql3 ansible_host=172.17.0.216 ansible_port=22
+[load_balancer]
+haproxy ansible_host=172.17.0.210 ansible_port=22
+
+
+[cluster:children]
+mysql_cluster
+load_balancer
+
+[cluster:vars]
+ansible_connection=ssh
+ansible_user=vagrant
+ansible_ssh_pass=vagrant
+; ansible_ssh_private_key_file= ~/.vagrant/machines/default/virtualbox/private_key
