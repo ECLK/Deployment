@@ -1,0 +1,177 @@
+---
+- hosts: all
+  become: true
+  become_method: sudo
+  vars:
+    mysql_cluster_name: demo_mysql_cluster
+    mysql_root_password: "root"
+
+  tasks:
+
+# Setup Mysql server 5.7 galera cluster repositories
+
+   - name: view ips
+     debug: msg={{ ansible_default_ipv4 }}
+     when: "'mysql_cluster' in group_names" 
+     with_items: "{{ groups['mysql_cluster'] }}"
+
+   - name: import repository key
+     apt_key: keyserver=hkp://keyserver.ubuntu.com:80 id=BC19DDBA
+     when: "'mysql_cluster' in group_names"
+ 
+   - name: add apt repository for mysql-wsrep-5.7 and Galera Cluster
+     apt_repository: repo='{{item}}'
+       state=present update_cache=yes
+     with_items:
+        - "deb http://releases.galeracluster.com/mysql-wsrep-5.7/{{ ansible_distribution|lower() }} {{ ansible_distribution_release }} main"
+        - "deb http://releases.galeracluster.com/galera-3/{{ ansible_distribution|lower() }} {{ ansible_distribution_release }} main"
+     when: "'mysql_cluster' in group_names"
+
+   - name: create a preference file for galera repository. 
+     blockinfile: |
+       create=yes
+       dest=/etc/apt/preferences.d/mysql-galera-cluster.pref
+       content="Package: *
+                Pin: origin releases.galeracluster.com
+                Pin-Priority: 1001"
+     when: "'mysql_cluster' in group_names"
+
+# Install Mysql and Galera Cluster packages
+
+   - name: Disable mysql AppArmor rule 
+     file:
+      src: /etc/apparmor.d/usr.sbin.mysqld
+      dest: /etc/apparmor.d/disable/usr.sbin.mysqld   
+      state: link
+      force: yes
+     when: "'mysql_cluster' in group_names"
+   
+   - name: Restart AppArmor
+     systemd: state=restarted name=apparmor
+     when: "'mysql_cluster' in group_names"
+
+   - name: install Mysql-server 5.7 and Galera Cluster packages
+     apt:
+      name: ['galera-3', 'galera-arbitrator-3', 'mysql-wsrep-5.7', 'rsync', 'python-mysqldb']
+      update_cache: yes 
+     when: "'mysql_cluster' in group_names"
+
+   - name: Disable mysql systemd unit to prevent cluster from starting in wrong order 
+     systemd: name=mysql enabled=no
+     when: "'mysql_cluster' in group_names"
+
+# Create Mysql Galera Cluster Configuration file
+
+   - name: Create Mysql Galera Cluster Configuration file     
+     template:
+       src: mysql-cluster-config.j2
+       dest: /etc/mysql/conf.d/mysql_galera_cluster.cnf
+       owner: mysql
+       group: mysql
+     when: "'mysql_cluster' in group_names"
+
+   - name: Stop slave mysql nodes
+     systemd: state=stopped name=mysql
+     when: "('load_balancer' not in group_names) and  (inventory_hostname != groups['mysql_cluster'][0])"
+     tags:
+        - stop_cluster
+
+   - name: Wait 20 seconds to safely shutdown all slave mysql nodes
+     pause:
+      seconds: 20
+     tags:
+        - stop_cluster
+
+   - name: Stop Primary Mysql Node
+     systemd: state=stopped name=mysql
+     when: inventory_hostname == groups['mysql_cluster'][0]
+     tags:
+        - stop_cluster
+
+   - name: Wait 10 seconds to safely shutdown mysql primary node
+     pause:
+      seconds: 10
+
+   - name: Bootstarping Primary Mysql Node
+     shell: /usr/bin/mysqld_bootstrap
+     when: inventory_hostname == groups['mysql_cluster'][0]
+     any_errors_fatal: true
+     tags:
+        - start_cluster
+
+   - name: Wait 10 seconds after bootstarping Primary Mysql Node
+     pause:
+      seconds: 10
+     tags:
+        - start_cluster
+
+   - name: Start slave Mysql nodes
+     systemd: state=started name=mysql
+     when: "('load_balancer' not in group_names) and  (inventory_hostname != groups['mysql_cluster'][0])"
+     any_errors_fatal: true
+     tags:
+        - start_cluster 
+     
+   - name: install haproxy
+     apt:
+      name: ['haproxy', 'python-mysqldb']
+      update_cache: yes
+     when: "'load_balancer' in group_names"
+
+     
+   - name: add mysql nodes to haproxy Configuration file
+     template:
+       src: haproxy-config.j2
+       dest: /etc/haproxy/haproxy.cfg
+       validate: 'haproxy -c -f %s'
+     when: "'load_balancer' in group_names"
+
+# Set mysql root user password and only allow access to root user from loadbalancer IP and localhost
+
+   - name: Set mysql root user password and only allow access to root user from loadbalancer IP and localhost
+     mysql_user: 
+      name: root
+      host: '{{ item }}'
+      check_implicit_admin: yes
+      login_user: root
+      login_password: '{{ mysql_root_password }}'
+      password: '{{ mysql_root_password }}'
+      priv: '*.*:ALL'
+      state: present
+      update_password: always
+     when: inventory_hostname == groups['mysql_cluster'][0]
+     with_items:
+        - "{{ hostvars[groups['load_balancer'][0]]['ansible_default_ipv4']['address'] }}"
+        - 127.0.0.1
+        - "localhost"
+
+   - name: Create haproxy mysql user to perform basic health checks 
+     mysql_user:
+      name: haproxy
+      host: "{{ hostvars[groups['load_balancer'][0]]['ansible_default_ipv4']['address'] }}"
+      state: present
+      check_implicit_admin: yes
+      login_user: root
+      login_password: '{{ mysql_root_password }}'
+     when: inventory_hostname == groups['mysql_cluster'][0]
+
+   - name: Restart haproxy
+     systemd: state=restarted name=haproxy
+     when: "'load_balancer' in group_names"
+
+   
+   - name: Testing cluster status by connecting to load balancer
+     shell: mysql -h {{ hostvars[groups['load_balancer'][0]]['ansible_default_ipv4']['address'] }} -u root -p{{ mysql_root_password }} -e "SHOW STATUS LIKE 'wsrep_cluster_size'" | grep 'wsrep_cluster_size' | awk '{print $2}'
+     when: inventory_hostname == groups['load_balancer'][0]
+     run_once: true
+     register: cluster_status
+
+
+   - name: Test status
+     debug: 
+         msg: 
+            - " Test connection successfull"
+            - " Total number of active mysql nodes in cluster: '{{ cluster_status.stdout }} '"
+            - " Setup Completed!"
+     when: inventory_hostname == groups['load_balancer'][0] 
+     run_once: true 
