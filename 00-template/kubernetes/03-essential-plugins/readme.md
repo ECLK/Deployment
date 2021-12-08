@@ -52,6 +52,8 @@ Get the Kubernetes Dashboard URL by running:
 
 ## Cert Manager
 
+#addrepo - helm repo add jetstack https://charts.jetstack.io
+
 kubectl create ns cert-manager
 
 helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.4.4
