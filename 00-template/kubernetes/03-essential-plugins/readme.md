@@ -52,7 +52,11 @@ Get the Kubernetes Dashboard URL by running:
 
 ## Cert Manager
 
+kubectl create ns cert-manager
+
 helm install \
   cert-manager jetstack/cert-manager \
   --namespace cert-manager \
   --version v1.4.4
+  
+ kubectl apply -f cluster-issuer.yaml
