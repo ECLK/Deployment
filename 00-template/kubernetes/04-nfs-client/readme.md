@@ -5,7 +5,7 @@ This plugin enables dynamic provisioning for Kubernetes with an NFS server.
 ## Install client
  
 ```
-helm install --name nfs-client --namespace kube-system  stable/nfs-client-provisioner \ 
+helm install nfs-client --namespace kube-system  stable/nfs-client-provisioner \ 
 --set nfs.server=<nfs-ip> \
 --set nfs.path=<server-path>
 ```
@@ -13,7 +13,7 @@ helm install --name nfs-client --namespace kube-system  stable/nfs-client-provis
 an example of the above which has the nfs server ip of 10.225.100.21 hosted in the path /data would look like this.
 
 ```
-helm install --name nfs-client --namespace kube-system  stable/nfs-client-provisioner \ 
+helm install nfs-client --namespace kube-system  stable/nfs-client-provisioner \ 
 --set nfs.server=10.225.100.21 \
 --set nfs.path=/data 
 ```
