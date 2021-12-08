@@ -1,10 +1,13 @@
 # Essential Software that needs to be installed in K8s
 
+
+#addrepo - helm repo add stable https://charts.helm.sh/stable
+
 ## nginx ingress
 
 ```kubectl create ns nginx-ingress```
 ```
-helm install --name nginx-ingress stable/nginx-ingress --namespace nginx-ingress  --version=v1.4.0 \
+helm install nginx-ingress stable/nginx-ingress --namespace nginx-ingress  \
 --set rbac.create=true \
 --set controller.service.type=NodePort \
 --set controller.metrics.enabled=true \
@@ -18,7 +21,7 @@ Have a look at nginx-ingress.md for a sample of an ingress with nginx ingress.
 
 ``` kubectl create ns monitoring```
 ```
-helm install --name metrics-server stable/metrics-server --namespace monitoring \
+helm install metrics-server stable/metrics-server --namespace monitoring \
 --set "args[0]=--logtostderr,args[1]=--kubelet-preferred-address-types=InternalIP,args[2]=--kubelet-insecure-tls" 
 ```
 
@@ -29,7 +32,7 @@ To check if the metrics are working, please try the following command after abou
 ## k8s Dashboard
 
 ```
-helm install --name kubernetes-dashboard stable/kubernetes-dashboard \
+helm install kubernetes-dashboard stable/kubernetes-dashboard \
 --set rbac.clusterAdminRole=true --namespace kube-system
 ```
 
@@ -49,4 +52,7 @@ Get the Kubernetes Dashboard URL by running:
 
 ## Cert Manager
 
-TODO: Will set this up after Laptop is fixed [Nilesh]
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version v1.4.4
