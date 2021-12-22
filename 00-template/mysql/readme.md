@@ -1,5 +1,5 @@
 #This guides thriugh setting up mysql server with custom @@datadir
-
+(MYSQL 5.7)
 sudo apt-get update
 sudo apt install -y mysql-server
 
